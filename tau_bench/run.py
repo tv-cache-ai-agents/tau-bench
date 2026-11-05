@@ -11,6 +11,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 from tau_bench.envs import get_env
+from tau_bench.envs.latency import PROFILE_NAMES, make_tool_latency
 from tau_bench.agents.base import Agent
 from tau_bench.types import EnvRunResult, RunConfig
 from litellm import provider_list
@@ -24,6 +25,8 @@ def run(config: RunConfig) -> List[EnvRunResult]:
     assert config.agent_strategy in ["tool-calling", "act", "react", "few-shot"], "Invalid agent strategy"
     assert config.task_split in ["train", "test", "dev"], "Invalid task split"
     assert config.user_strategy in [item.value for item in UserStrategy], "Invalid user strategy"
+    assert config.tool_latency_profile in PROFILE_NAMES, "Invalid tool latency profile"
+    assert config.tool_latency_scale >= 0, "Tool latency scale must be non-negative"
 
     random.seed(config.seed)
     time_str = datetime.now().strftime("%m%d%H%M%S")
@@ -71,6 +74,11 @@ def run(config: RunConfig) -> List[EnvRunResult]:
                 task_split=config.task_split,
                 user_provider=config.user_model_provider,
                 task_index=idx,
+                tool_latency=make_tool_latency(
+                    config.tool_latency_profile,
+                    config.tool_latency_scale,
+                    session_seed=f"{config.seed}:{i}:{idx}",
+                ),
             )
 
             print(f"Running task {idx}")

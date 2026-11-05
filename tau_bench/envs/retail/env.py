@@ -1,6 +1,7 @@
 # Copyright Sierra
 
 from tau_bench.envs.base import Env
+from tau_bench.envs.latency import ToolLatency
 from tau_bench.envs.retail.data import load_data
 from tau_bench.envs.retail.rules import RULES
 from tau_bench.envs.retail.tools import ALL_TOOLS
@@ -17,6 +18,7 @@ class MockRetailDomainEnv(Env):
         user_provider: Optional[str] = None,
         task_split: str = "test",
         task_index: Optional[int] = None,
+        tool_latency: Optional[ToolLatency] = None,
     ):
         match task_split:
             case "test":
@@ -37,5 +39,6 @@ class MockRetailDomainEnv(Env):
             user_model=user_model,
             user_provider=user_provider,
             task_index=task_index,
+            tool_latency=tool_latency,
         )
         self.terminate_tools = ["transfer_to_human_agents"]

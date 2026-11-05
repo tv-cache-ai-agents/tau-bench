@@ -2,6 +2,7 @@
 
 import random
 from hashlib import sha256
+from tau_bench.envs.latency import ToolLatency
 from tau_bench.envs.tool import Tool
 from typing import Any, Callable, Dict, List, Type, Optional, Set, Union, Tuple
 
@@ -53,6 +54,7 @@ class Env(object):
         user_model: str,
         user_provider: Optional[str] = None,
         task_index: Optional[int] = None,
+        tool_latency: Optional[ToolLatency] = None,
     ) -> None:
         super().__init__()
         self.data_load_func = data_load_func
@@ -61,6 +63,10 @@ class Env(object):
             tool.get_info()["function"]["name"]: tool for tool in tools
         }
         self.tools_info = [tool.get_info() for tool in tools]
+        self.tool_latency = tool_latency
+        if tool_latency is not None:
+            tool_latency.check_covers(self.tools_map)
+        self.replaying_ground_truth = False
         self.terminate_tools = []
         self.tasks = tasks
         if task_index is not None:
@@ -98,6 +104,9 @@ class Env(object):
             info.source = "user"
             done = "###STOP###" in observation
         elif action.name in self.tools_map:
+            # Reward replay is scoring, not serving, so it must not pay tool latency.
+            if self.tool_latency is not None and not self.replaying_ground_truth:
+                info.injected_latency = self.tool_latency.apply(action.name)
             try:
                 observation = self.tools_map[action.name].invoke(
                     data=self.data, **action.kwargs
@@ -131,9 +140,13 @@ class Env(object):
         # Check if the database changes are correct. If they are not correct, then we set the reward to 0.
         # TODO: cache gt_data_hash in tasks.py (low priority)
         self.data = self.data_load_func()
-        for action in self.task.actions:
-            if action.name not in self.terminate_tools:
-                self.step(action)
+        self.replaying_ground_truth = True
+        try:
+            for action in self.task.actions:
+                if action.name not in self.terminate_tools:
+                    self.step(action)
+        finally:
+            self.replaying_ground_truth = False
         gt_data_hash = self.get_data_hash()
         info = RewardActionInfo(
             r_actions=data_hash == gt_data_hash, gt_data_hash=gt_data_hash

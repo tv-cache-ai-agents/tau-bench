@@ -2,6 +2,7 @@
 
 import argparse
 from tau_bench.types import RunConfig
+from tau_bench.envs.latency import PROFILE_NAMES
 from tau_bench.run import run
 from litellm import provider_list
 from tau_bench.envs.user import UserStrategy
@@ -69,6 +70,19 @@ def parse_args() -> RunConfig:
     parser.add_argument("--shuffle", type=int, default=0)
     parser.add_argument("--user-strategy", type=str, default="llm", choices=[item.value for item in UserStrategy])
     parser.add_argument("--few-shot-displays-path", type=str, help="Path to a jsonlines file containing few shot displays")
+    parser.add_argument(
+        "--tool-latency-profile",
+        type=str,
+        default="none",
+        choices=PROFILE_NAMES,
+        help="Delay profile for tool calls (see tau_bench/envs/latency.py). Sampling is seeded by --seed.",
+    )
+    parser.add_argument(
+        "--tool-latency-scale",
+        type=float,
+        default=1.0,
+        help="Multiplier applied to every sampled tool delay",
+    )
     args = parser.parse_args()
     print(args)
     return RunConfig(
@@ -90,6 +104,8 @@ def parse_args() -> RunConfig:
         shuffle=args.shuffle,
         user_strategy=args.user_strategy,
         few_shot_displays_path=args.few_shot_displays_path,
+        tool_latency_profile=args.tool_latency_profile,
+        tool_latency_scale=args.tool_latency_scale,
     )
 
 

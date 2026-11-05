@@ -2,6 +2,7 @@
 
 from typing import Optional, Union
 from tau_bench.envs.base import Env
+from tau_bench.envs.latency import ToolLatency
 from tau_bench.envs.user import UserStrategy
 
 
@@ -12,6 +13,7 @@ def get_env(
     task_split: str,
     user_provider: Optional[str] = None,
     task_index: Optional[int] = None,
+    tool_latency: Optional[ToolLatency] = None,
 ) -> Env:
     if env_name == "retail":
         from tau_bench.envs.retail import MockRetailDomainEnv
@@ -22,6 +24,7 @@ def get_env(
             task_split=task_split,
             user_provider=user_provider,
             task_index=task_index,
+            tool_latency=tool_latency,
         )
     elif env_name == "airline":
         from tau_bench.envs.airline import MockAirlineDomainEnv
@@ -32,6 +35,7 @@ def get_env(
             task_split=task_split,
             user_provider=user_provider,
             task_index=task_index,
+            tool_latency=tool_latency,
         )
     else:
         raise ValueError(f"Unknown environment: {env_name}")

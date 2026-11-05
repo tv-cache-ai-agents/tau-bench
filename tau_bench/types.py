@@ -47,6 +47,7 @@ class EnvInfo(BaseModel):
     source: Optional[str] = None
     user_cost: Optional[float] = None
     reward_info: Optional[RewardResult] = None
+    injected_latency: Optional[float] = None
 
 
 class EnvResponse(BaseModel):
@@ -88,3 +89,5 @@ class RunConfig(BaseModel):
     shuffle: int = 0
     user_strategy: str = "llm"
     few_shot_displays_path: Optional[str] = None
+    tool_latency_profile: str = "none"
+    tool_latency_scale: float = 1.0

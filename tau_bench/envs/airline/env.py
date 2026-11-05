@@ -5,6 +5,7 @@ from tau_bench.envs.airline.rules import RULES
 from tau_bench.envs.airline.tools import ALL_TOOLS
 from tau_bench.envs.airline.wiki import WIKI
 from tau_bench.envs.base import Env
+from tau_bench.envs.latency import ToolLatency
 from typing import Optional, Union
 from tau_bench.envs.user import UserStrategy
 
@@ -17,6 +18,7 @@ class MockAirlineDomainEnv(Env):
         user_provider: Optional[str] = None,
         task_split: str = "test",
         task_index: Optional[int] = None,
+        tool_latency: Optional[ToolLatency] = None,
     ):
         match task_split:
             case "test":
@@ -33,5 +35,6 @@ class MockAirlineDomainEnv(Env):
             user_model=user_model,
             user_provider=user_provider,
             task_index=task_index,
+            tool_latency=tool_latency,
         )
         self.terminate_tools = ["transfer_to_human_agents"]

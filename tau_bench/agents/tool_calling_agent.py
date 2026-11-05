@@ -31,11 +31,12 @@ class ToolCallingAgent(Agent):
         total_cost = 0.0
         # --- Timing instrumentation (TVCache workload characterization) ---
         # Buckets (seconds): agent_llm = agent completion() calls; user_llm = time inside the
-        # simulated user's reset/step (its LLM calls); tool = env.step() for tool actions;
+        # simulated user's reset/step (its LLM calls); tool = env.step() for tool actions,
+        # including injected latency; tool_injected = the injected part of tool;
         # reward_calc = env.calculate_reward() (DB reload + ground-truth replay, runs on the
         # final step); other = total - the rest (DB load in reset, bookkeeping).
         t_solve0 = time.perf_counter()
-        timings = {"agent_llm": 0.0, "user_llm": 0.0, "tool": 0.0, "reward_calc": 0.0}
+        timings = {"agent_llm": 0.0, "user_llm": 0.0, "tool": 0.0, "tool_injected": 0.0, "reward_calc": 0.0}
         tool_calls: List[Dict[str, Any]] = []
         llm_calls: List[Dict[str, Any]] = []
         state = {"in_reward": False, "step": -1}
@@ -90,9 +91,11 @@ class ToolCallingAgent(Agent):
             dt = time.perf_counter() - t0
             timings["agent_llm"] += dt
             usage = getattr(res, "usage", None)
+            prompt_details = getattr(usage, "prompt_tokens_details", None)
             llm_calls.append({
-                "who": "agent", "step": step_idx, "seconds": dt,
+                "who": "agent", "step": step_idx, "seconds": dt, "user_turn": user_turn,
                 "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                "cached_tokens": getattr(prompt_details, "cached_tokens", None),
                 "completion_tokens": getattr(usage, "completion_tokens", None),
             })
             next_message = res.choices[0].message.model_dump()
@@ -108,9 +111,12 @@ class ToolCallingAgent(Agent):
                 # A terminate tool (retail: transfer_to_human_agents) triggers reward_calc inside
                 # step(); subtract it so tool time is only the tool itself.
                 dt = time.perf_counter() - t0 - (timings["reward_calc"] - reward_before)
+                injected = env_response.info.injected_latency or 0.0
                 timings["tool"] += dt
+                timings["tool_injected"] += injected
                 tool_calls.append({
                     "tool": action.name, "args": action.kwargs, "seconds": dt,
+                    "injected_seconds": injected,
                     "turn_index": step_idx, "user_turn": user_turn,
                     "error": str(env_response.observation).startswith(("Error:", "Unknown action")),
                 })

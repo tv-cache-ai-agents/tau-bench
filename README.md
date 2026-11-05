@@ -77,6 +77,39 @@ python run.py --agent-strategy tool-calling --env retail --model gpt-4o --model-
 
 This command will run only the tasks with IDs 2, 4, and 6.
 
+## Tool latency
+
+Tools are in-memory lookups that return in microseconds. To make them take realistic time, set `--tool-latency-profile`, and use `--tool-latency-scale` to multiply every delay. For example, to run with delays at half the profile's values:
+
+```bash
+python run.py --agent-strategy tool-calling --env retail --model gpt-4o --model-provider openai --user-model gpt-4o --user-model-provider openai --user-strategy llm --tool-latency-profile service_api --tool-latency-scale 0.5
+```
+
+Latency is off by default (`none`). The `service_api` profile treats tools as calls to internal service APIs, with delays sampled from a lognormal distribution:
+
+| Tools | 5th-95th percentile delay |
+| --- | --- |
+| `think`, `calculate` | none (they run locally) |
+| Lookups (`get_*`, `find_*`, `list_*`, `search_*`) | 100-300 ms |
+| Writes and `transfer_to_human_agents` | 300-800 ms |
+
+The `tau_fast`, `tau_central` and `tau_slow` profiles are bottom-up estimates for a same-region backend, a backend across a network, and a vendor-API-style backend. They use these median delays, with p95 about 2.3x the median:
+
+| Tools | `tau_fast` | `tau_central` | `tau_slow` |
+| --- | --- | --- | --- |
+| `get_*` | 5 ms | 60 ms | 150 ms |
+| `find_*`, `list_*` | 8 ms | 65 ms | 200 ms |
+| Database-only writes and `transfer_to_human_agents` | 15 ms | 75 ms | 250 ms |
+| Writes that move money | 215 ms | 370 ms | 800 ms |
+| `search_direct_flight` | 400 ms | 800 ms | 3 s |
+| `search_onestop_flight` | 800 ms | 1.6 s | 8 s |
+
+All of these values are modelling assumptions rather than measurements, and any time saved by caching scales with them. The per-tool tables are in [`tau_bench/envs/latency.py`](tau_bench/envs/latency.py).
+
+Delays are reproducible: each session's samples are determined by `--seed`, the trial, and the task ID. A delay applies to every call that reaches a known tool, including calls that return an error. Replaying the ground-truth actions to calculate the reward does not pay latency. To separate results from different scales, give each run its own `--log-dir`.
+
+The `tool-calling` agent records each call's delay as `injected_seconds` in `info["tool_calls"]` and the conversation total as `tool_injected` in `info["timings"]`. Its `seconds` and `tool` values include the delay.
+
 ## User simulators
 
 By default, we use `gpt-4o` as the user simulator with strategy `llm`. You can use other models by setting the `--user-model` flag, or other strategies by setting the `--user-strategy` flag. For example, run a tool-calling agent with a claude user simulator:
